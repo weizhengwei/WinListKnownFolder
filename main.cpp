@@ -27,18 +27,24 @@ namespace std {
 
 const TCHAR* CLASSNAME = _T("CLSNAME_KNOWNFOLDER");
 const TCHAR* WIN_TITLE = _T("WinListKnownFolder");
-const TCHAR* VER = _T("V1.0.0");
+const TCHAR* VER = _T("V1.0.1");
 
 std::vector<std::tstring> vecCols{
     _T("FOLDERID"),
     _T("GUID"),
-    _T("Path")
+    _T("Path"),
+    _T("LocalizedModule"),
+    _T("ResourceID"),
+    _T("LocalizedName")
 };
 
 std::map<int, int> vecColWidth = {
     {0, 250},
     {1, 300},
-    {2, 650}
+    {2, 650},
+    {3, 300},
+    {4, 100},
+    {5, 150}
 };
 
 #define ID_LISTVIEW 100
@@ -414,6 +420,7 @@ void FillPathInfoToListView()
         PWSTR lpPath = NULL;
         HRESULT hr = SHGetKnownFolderPath(item, KF_FLAG_DEFAULT, NULL, &lpPath);
 
+        
         WCHAR szGUID[MAX_PATH] = {};
         StringFromGUID2(item, szGUID, MAX_PATH);
 
@@ -450,6 +457,54 @@ void FillPathInfoToListView()
             lvItem.pszText = szText;
             ListView_SetItem(hListView, &lvItem);
         }
+        //---
+        WCHAR szResMod[MAX_PATH] = {};
+        int idsRes = 0;
+        hr = SHGetLocalizedName(lpPath, szResMod, MAX_PATH, &idsRes);
+        if (SUCCEEDED(hr))
+        {
+            TCHAR szFullName[MAX_PATH] = {};
+            ExpandEnvironmentStrings(szResMod, szFullName, MAX_PATH);
+            lvItem.iSubItem = 3;
+            _stprintf_s(szText, ARRAYSIZE(szText), _T("%s"), szFullName);
+            lvItem.mask = LVIF_TEXT;
+            lvItem.pszText = szText;
+            ListView_SetItem(hListView, &lvItem);
+
+            lvItem.iSubItem = 4;
+            _stprintf_s(szText, ARRAYSIZE(szText), _T("%d"), idsRes);
+            lvItem.mask = LVIF_TEXT;
+            lvItem.pszText = szText;
+            ListView_SetItem(hListView, &lvItem);
+
+            HMODULE hMod = GetModuleHandle(szFullName);
+            TCHAR szResName[MAX_PATH] = {};
+            int res = 0;
+            if (hMod != NULL)
+            {
+                res = LoadString(hMod, idsRes, szResName, MAX_PATH);
+            }
+            else
+            {
+                hMod = LoadLibrary(szFullName);
+                res = LoadString(hMod, idsRes, szResName, MAX_PATH);
+            }
+            if (res > 0)
+            {
+                lvItem.iSubItem = 5;
+                _stprintf_s(szText, ARRAYSIZE(szText), _T("%s"), szResName);
+                lvItem.mask = LVIF_TEXT;
+                lvItem.pszText = szText;
+                ListView_SetItem(hListView, &lvItem);
+
+                //OutputDebugString(lpPath);
+                //OutputDebugString(L"-----");
+                //OutputDebugString(szResName);
+                //OutputDebugString(L"\n");
+            }
+        }
+        //---
+
         CoTaskMemFree(lpPath);
     }
 }
